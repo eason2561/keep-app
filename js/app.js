@@ -7,7 +7,7 @@ import {
   COLORS, blankNote, isEmpty, toChecklist, toText, matches, nowIso, newId, pathFor,
 } from "./notes.js";
 
-export const APP_VERSION = "keep-v2"; // keep in step with VERSION in sw.js
+export const APP_VERSION = "keep-v3"; // keep in step with VERSION in sw.js
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -341,17 +341,25 @@ function renderNotes(view, r) {
   $$(".masonry", view).forEach(layoutMasonry);
 }
 
+// The owner's defaults for new notes: pinned, and (unless asked otherwise) a checklist.
+function newNote(type, r) {
+  const note = blankNote(type);
+  note.pinned = true;
+  if (r.kind === "label") note.labels = [r.label];
+  return note;
+}
+
 function composer(r) {
   const el = h(`<div class="composer">
-    <button type="button" class="composer-text" data-new="text">Take a note…</button>
-    <button type="button" class="icon-btn" data-new="checklist" title="New list" aria-label="New list">${icon("checklist")}</button>
+    <button type="button" class="composer-text" data-new="checklist">Take a note…</button>
+    <button type="button" class="icon-btn" data-new="text" title="New note without checkboxes" aria-label="New note without checkboxes">${icon("edit")}</button>
     <button type="button" class="icon-btn" data-new="image" title="New note with image" aria-label="New note with image">${icon("image")}</button>
   </div>`);
   el.addEventListener("click", (e) => {
     const b = e.target.closest("[data-new]");
     if (!b) return;
-    const note = blankNote(b.dataset.new === "checklist" ? "checklist" : "text");
-    if (r.kind === "label") note.labels = [r.label];
+    // New notes have checkboxes unless the plain-text button was used.
+    const note = newNote(b.dataset.new === "text" ? "text" : "checklist", r);
     openEditor(note, { isNew: true, pickImage: b.dataset.new === "image" });
   });
   return el;
@@ -881,7 +889,7 @@ function renderSettings(view) {
     </section>
     <section class="panel">
       <h3>Shortcuts</h3>
-      <p class="hint"><kbd>c</kbd> new note · <kbd>l</kbd> new list · <kbd>/</kbd> search · <kbd>Esc</kbd> close note</p>
+      <p class="hint"><kbd>c</kbd> new note · <kbd>t</kbd> new note without checkboxes · <kbd>/</kbd> search · <kbd>Esc</kbd> close note</p>
       <p class="hint muted">Version ${APP_VERSION}</p>
     </section>`;
   $("#settings-form").onsubmit = async (e) => {
@@ -1007,11 +1015,10 @@ function wire() {
     if (e.key === "/") {
       e.preventDefault();
       search.focus();
-    } else if (e.key === "c" || e.key === "l") {
+    } else if (e.key === "c" || e.key === "l" || e.key === "t") {
       const r = route();
       if (r.kind === "settings" || r.kind === "trash" || r.kind === "archive") location.hash = "#/";
-      const note = blankNote(e.key === "l" ? "checklist" : "text");
-      if (r.kind === "label") note.labels = [r.label];
+      const note = newNote(e.key === "t" ? "text" : "checklist", r);
       e.preventDefault();
       openEditor(note, { isNew: true });
     }
