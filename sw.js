@@ -1,6 +1,6 @@
 // Caches the app shell so it opens offline. Notes always come from api.github.com
 // (never cached here); the app keeps its own copy and an outbox of unsynced edits.
-const VERSION = "keep-v1"; // keep in step with APP_VERSION in js/app.js
+const VERSION = "keep-v2"; // keep in step with APP_VERSION in js/app.js
 const SHELL = [
   "./", "index.html", "styles.css", "manifest.webmanifest", "icon.svg", "icon-192.png",
   "js/app.js", "js/github.js", "js/store.js", "js/notes.js", "js/icons.js",

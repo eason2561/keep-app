@@ -355,7 +355,6 @@ main.settings { max-width: 640px; margin-right: auto; }
   .brand { display: none; }
   .searchbox { height: 44px; min-width: 0; }
   .top-actions { padding-left: 0; }
-  #layout-btn { display: none; }
   #nav {
     width: var(--nav-w); transform: translateX(-100%); transition: transform 0.2s ease; z-index: 40;
     top: 0; padding-top: 16px; box-shadow: var(--shadow);
@@ -367,6 +366,13 @@ main.settings { max-width: 640px; margin-right: auto; }
   main, .nav-open main { margin-left: 0; padding: 16px 8px 96px; }
   main.settings, .nav-open main.settings { padding: 16px; }
   .masonry, .masonry .col { gap: 8px; }
+  .card { padding: 10px 12px; }
+  .card-imgs { margin: -10px -12px 10px; }
+  .card-title { font-size: 15px; margin-right: 0; }
+  .card .pin.on { display: none; }
+  .card-body { max-height: 13em; }
+  .card-list li.indent { padding-left: 16px; }
+  .chip { padding: 2px 8px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .composer { margin-bottom: 20px; }
   .editor { width: 100vw; max-width: 100vw; height: 100%; max-height: 100%; border-radius: 0; margin: 0; }
   .ed-scroll { flex: 1; }

@@ -7,7 +7,7 @@ import {
   COLORS, blankNote, isEmpty, toChecklist, toText, matches, nowIso, newId, pathFor,
 } from "./notes.js";
 
-export const APP_VERSION = "keep-v1"; // keep in step with VERSION in sw.js
+export const APP_VERSION = "keep-v2"; // keep in step with VERSION in sw.js
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -368,7 +368,8 @@ function masonry(notes) {
 function layoutMasonry(wrap) {
   if (!wrap.isConnected) return masonries.delete(wrap);
   const width = wrap.clientWidth;
-  const n = ui.layout === "list" ? 1 : Math.max(1, Math.min(6, Math.floor((width + 16) / (240 + 16))));
+  // Phones get two columns side by side, like Keep; wider screens fit as many 240px columns as they can.
+  const n = ui.layout === "list" ? 1 : width < 600 ? 2 : Math.min(6, Math.floor((width + 16) / (240 + 16)));
   if (wrap._n === n && wrap.childElementCount) return;
   wrap._n = n;
   wrap.innerHTML = "";
