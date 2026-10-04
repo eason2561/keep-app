@@ -7,7 +7,7 @@ import {
   blankNote, isEmpty, toChecklist, toText, matches, nowIso, newId, pathFor,
 } from "./notes.js";
 
-export const APP_VERSION = "keep-v4"; // keep in step with VERSION in sw.js
+export const APP_VERSION = "keep-v5"; // keep in step with VERSION in sw.js
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
