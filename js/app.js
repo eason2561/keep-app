@@ -4,18 +4,14 @@ import * as gh from "./github.js";
 import * as store from "./store.js";
 import { icon } from "./icons.js";
 import {
-  COLORS, blankNote, isEmpty, toChecklist, toText, matches, nowIso, newId, pathFor,
+  blankNote, isEmpty, toChecklist, toText, matches, nowIso, newId, pathFor,
 } from "./notes.js";
 
-export const APP_VERSION = "keep-v3"; // keep in step with VERSION in sw.js
+export const APP_VERSION = "keep-v4"; // keep in step with VERSION in sw.js
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-const COLOR_NAMES = {
-  default: "Default", red: "Coral", orange: "Peach", yellow: "Sand", green: "Mint", teal: "Sage",
-  blue: "Fog", darkblue: "Storm", purple: "Dusk", pink: "Blossom", brown: "Clay", gray: "Chalk",
-};
 const TRASH_DAYS = 7;
 
 function pref(key, fallback) {
@@ -67,7 +63,9 @@ function allLabels() {
   return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
-const byCreated = (a, b) => (b.created || "").localeCompare(a.created || "") || b.id.localeCompare(a.id);
+// Most recently edited first (the owner's choice). Pinning, labels, archive and trash
+// don't count as edits, so they don't reorder notes.
+const byEdited = (a, b) => (b.updated || b.created || "").localeCompare(a.updated || a.created || "") || b.id.localeCompare(a.id);
 
 // ---------- routing ----------
 function route() {
@@ -112,21 +110,6 @@ document.addEventListener("pointerdown", (e) => {
   if (menuEl && !menuEl.contains(e.target) && !e.target.closest("[data-menu]")) closeMenu();
 });
 
-function colorMenu(current, onPick) {
-  const el = h(`<div class="palette">${COLORS.map((c) => `
-    <button type="button" class="swatch c-${c}${c === current ? " on" : ""}" data-c="${c}" title="${COLOR_NAMES[c]}" aria-label="${COLOR_NAMES[c]}">
-      ${c === current ? icon("check") : ""}</button>`).join("")}</div>`);
-  el.addEventListener("click", (e) => {
-    const b = e.target.closest("[data-c]");
-    if (!b) return;
-    onPick(b.dataset.c);
-    $$(".swatch", el).forEach((s) => {
-      s.classList.toggle("on", s === b);
-      s.innerHTML = s === b ? icon("check") : "";
-    });
-  });
-  return el;
-}
 
 function labelMenu(note, onChange) {
   const el = h(`<div class="labelmenu">
@@ -187,8 +170,8 @@ async function update(note, changes, { touch = true } = {}) {
 }
 
 async function setArchived(note, archived) {
-  await update(note, { archived, pinned: false });
-  toast(archived ? "Note archived" : "Note unarchived", { label: "Undo", run: () => update(note, { archived: note.archived, pinned: note.pinned }) });
+  await update(note, { archived, pinned: false }, { touch: false });
+  toast(archived ? "Note archived" : "Note unarchived", { label: "Undo", run: () => update(note, { archived: note.archived, pinned: note.pinned }, { touch: false }) });
 }
 
 async function trash(note) {
@@ -315,7 +298,7 @@ function renderNotes(view, r) {
     list = list.filter((n) => !n.archived && !n.trashed);
     emptyText = "Notes you add appear here";
   }
-  list.sort(byCreated);
+  list.sort(byEdited);
 
   view.innerHTML = "";
   view.className = `layout-${ui.layout}`;
@@ -404,7 +387,7 @@ function checklistPreview(note) {
 
 function card(note) {
   const t = note.trashed;
-  const el = h(`<article class="card c-${note.color}" tabindex="0" data-id="${esc(note.id)}">
+  const el = h(`<article class="card c-default" tabindex="0" data-id="${esc(note.id)}">
     ${note.images.length ? `<div class="card-imgs n${Math.min(note.images.length, 3)}">${note.images.slice(0, 3).map((p) => `<img alt="" data-src="${esc(p)}">`).join("")}</div>` : ""}
     ${t ? "" : `<button type="button" class="pin icon-btn${note.pinned ? " on" : ""}" title="${note.pinned ? "Unpin" : "Pin"} note" aria-label="${note.pinned ? "Unpin" : "Pin"} note">${icon(note.pinned ? "pinned" : "pin")}</button>`}
     ${note.title ? `<h4 class="card-title">${esc(note.title)}</h4>` : ""}
@@ -416,8 +399,7 @@ function card(note) {
       ${t
         ? `<button type="button" class="icon-btn" data-act="deleteForever" title="Delete forever" aria-label="Delete forever">${icon("deleteForever")}</button>
            <button type="button" class="icon-btn" data-act="restore" title="Restore" aria-label="Restore">${icon("restore")}</button>`
-        : `<button type="button" class="icon-btn" data-act="color" data-menu title="Background options" aria-label="Background options">${icon("palette")}</button>
-           <button type="button" class="icon-btn" data-act="label" data-menu title="Labels" aria-label="Labels">${icon("label")}</button>
+        : `<button type="button" class="icon-btn" data-act="label" data-menu title="Labels" aria-label="Labels">${icon("label")}</button>
            <button type="button" class="icon-btn" data-act="archive" title="${note.archived ? "Unarchive" : "Archive"}" aria-label="${note.archived ? "Unarchive" : "Archive"}">${icon(note.archived ? "unarchive" : "archive")}</button>
            <button type="button" class="icon-btn" data-act="more" data-menu title="More" aria-label="More">${icon("more")}</button>`}
     </div></article>`);
@@ -428,14 +410,11 @@ function card(note) {
     let n = store.notes.get(note.id) || note;
     if (!b) return openEditor(n);
     e.stopPropagation();
-    if (b.classList.contains("pin")) return update(n, { pinned: !n.pinned, archived: false });
+    if (b.classList.contains("pin")) return update(n, { pinned: !n.pinned, archived: false }, { touch: false });
     const act = b.dataset.act;
     if (act === "restore") return restore(n);
     if (act === "deleteForever") return deleteForever(n);
     if (act === "archive") return setArchived(n, !n.archived);
-    if (act === "color") {
-      return openMenu(b, colorMenu(n.color, async (c) => { n = await update(n, { color: c }, { touch: false }); }));
-    }
     if (act === "label") {
       const working = { ...n };
       return openMenu(b, labelMenu(working, async () => { await update(n, { labels: working.labels }, { touch: false }); }));
@@ -501,7 +480,7 @@ function openEditor(note, { isNew = false, pickImage = false } = {}) {
   if (ed) closeEditor();
   const dlg = $("#editor");
   ed = { note: structuredClone(note), isNew, dlg, saveTimer: null, opening: true };
-  dlg.className = `editor c-${ed.note.color}`;
+  dlg.className = "editor c-default";
   drawEditor();
   dlg.showModal();
   $$("textarea", dlg).forEach(autosize); // sizes are only known once the dialog is visible
@@ -552,7 +531,7 @@ window.addEventListener("popstate", () => {
 function drawEditor() {
   const { note, dlg } = ed;
   const t = Boolean(note.trashed);
-  dlg.className = `editor c-${note.color}`;
+  dlg.className = "editor c-default";
   dlg.innerHTML = `
     <div class="ed-scroll">
       ${note.images.length ? `<div class="ed-imgs">${note.images.map((p) => `<figure><img alt="" data-src="${esc(p)}">${t ? "" : `<button type="button" class="icon-btn img-del" data-path="${esc(p)}" title="Remove image" aria-label="Remove image">${icon("trash")}</button>`}</figure>`).join("")}</div>` : ""}
@@ -570,8 +549,7 @@ function drawEditor() {
       ${t
         ? `<button type="button" class="icon-btn" data-act="deleteForever" title="Delete forever" aria-label="Delete forever">${icon("deleteForever")}</button>
            <button type="button" class="icon-btn" data-act="restore" title="Restore" aria-label="Restore">${icon("restore")}</button>`
-        : `<button type="button" class="icon-btn" data-act="color" data-menu title="Background options" aria-label="Background options">${icon("palette")}</button>
-           <button type="button" class="icon-btn" data-act="image" title="Add image" aria-label="Add image">${icon("image")}</button>
+        : `<button type="button" class="icon-btn" data-act="image" title="Add image" aria-label="Add image">${icon("image")}</button>
            <button type="button" class="icon-btn" data-act="label" data-menu title="Labels" aria-label="Labels">${icon("label")}</button>
            <button type="button" class="icon-btn" data-act="archive" title="${note.archived ? "Unarchive" : "Archive"}" aria-label="${note.archived ? "Unarchive" : "Archive"}">${icon(note.archived ? "unarchive" : "archive")}</button>
            <button type="button" class="icon-btn" data-act="more" data-menu title="More" aria-label="More">${icon("more")}</button>`}
@@ -635,12 +613,6 @@ async function editorClick(e) {
       note.pinned = !note.pinned;
       if (note.pinned) note.archived = false;
       return editorChanged({ touch: false, redraw: true });
-    case "color":
-      return openMenu(b, colorMenu(note.color, (c) => {
-        note.color = c;
-        ed.dlg.className = `editor c-${c}`;
-        editorChanged({ touch: false });
-      }));
     case "label":
       return openMenu(b, labelMenu(note, () => {
         editorChanged({ touch: false });
