@@ -300,7 +300,10 @@ dialog::backdrop { background: rgba(32, 33, 36, 0.6); }
 .item:focus-within { border-color: var(--border); }
 .item.indent { padding-left: 42px; }
 .item .box { width: 32px; height: 32px; }
+.item-main { flex: 1; min-width: 0; }
 .item-text { padding: 5px 0; font-size: 18px; line-height: 1.45; }
+.item-links:empty { display: none; }
+.item-link { display: block; padding: 0 0 6px; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item.checked .item-text { text-decoration: line-through; color: var(--muted); }
 .item-del { width: 32px; height: 32px; visibility: hidden; }
 .item:hover .item-del, .item:focus-within .item-del { visibility: visible; }

@@ -7,7 +7,7 @@ import {
   blankNote, isEmpty, toChecklist, toText, matches, nowIso, newId, pathFor,
 } from "./notes.js";
 
-export const APP_VERSION = "keep-v5"; // keep in step with VERSION in sw.js
+export const APP_VERSION = "keep-v6"; // keep in step with VERSION in sw.js
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -40,8 +40,15 @@ function h(html) {
   return t.content.firstElementChild;
 }
 
+const URL_RE = /\bhttps?:\/\/[^\s<]+[^\s<.,;:!?)\]'"]/g;
+
 function linkify(text) {
-  return esc(text).replace(/\bhttps?:\/\/[^\s<]+[^\s<.,;:!?)\]'"]/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+  return esc(text).replace(URL_RE, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+}
+
+// Tappable links under a checklist item in the editor (its text is a textarea, so links in it can't be tapped).
+function itemLinks(text) {
+  return (esc(text).match(URL_RE) || []).map((u) => `<a class="item-link" href="${u}" target="_blank" rel="noopener">${u}</a>`).join("");
 }
 
 function fmtEdited(iso) {
@@ -713,7 +720,10 @@ function drawChecklist(focus) {
   const t = Boolean(note.trashed);
   const row = (it, i) => `<div class="item${it.indent ? " indent" : ""}${it.checked ? " checked" : ""}" data-i="${i}">
       <button type="button" class="icon-btn box" role="checkbox" aria-checked="${it.checked}" aria-label="Done" ${t ? "disabled" : ""}>${icon(it.checked ? "boxChecked" : "boxEmpty")}</button>
-      <textarea class="item-text" rows="1" aria-label="List item" ${t ? "readonly" : ""}>${esc(it.text)}</textarea>
+      <div class="item-main">
+        <textarea class="item-text" rows="1" aria-label="List item" ${t ? "readonly" : ""}>${esc(it.text)}</textarea>
+        <div class="item-links">${itemLinks(it.text)}</div>
+      </div>
       ${t ? "" : `<button type="button" class="icon-btn item-del" title="Delete" aria-label="Delete item">${icon("close")}</button>`}
     </div>`;
   const open = note.items.map((it, i) => [it, i]).filter(([it]) => !it.checked);
@@ -752,6 +762,7 @@ function drawChecklist(focus) {
       return drawChecklist({ i: i + rest.length });
     }
     note.items[i].text = ta.value;
+    ta.nextElementSibling.innerHTML = itemLinks(ta.value);
     editorChanged();
   };
   wrap.onkeydown = (e) => {
